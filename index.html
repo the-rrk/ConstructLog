@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ConstructLog — KI-Protokollanalyse</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f7f8fa;
+      --surface: #ffffff;
+      --border: #e2e6ea;
+      --text: #1a1d23;
+      --muted: #6b7280;
+      --accent: #1a56db;
+      --decision: #1a56db;
+      --decision-bg: #eff6ff;
+      --task: #059669;
+      --task-bg: #ecfdf5;
+      --risk-high: #dc2626;
+      --risk-high-bg: #fef2f2;
+      --risk-med: #d97706;
+      --risk-med-bg: #fffbeb;
+      --risk-low: #6b7280;
+      --risk-low-bg: #f9fafb;
+      --openq: #7c3aed;
+      --openq-bg: #f5f3ff;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header .logo {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    header .logo span { color: var(--accent); }
+
+    header .tagline {
+      font-size: 13px;
+      color: var(--muted);
+      margin-left: 4px;
+      border-left: 1px solid var(--border);
+      padding-left: 12px;
+    }
+
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 800px) {
+      .main { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .api-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    input[type="password"], textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    input[type="password"]:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      height: 380px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      padding: 10px 20px;
+      transition: opacity 0.15s, background 0.15s;
+    }
+
+    button:hover { opacity: 0.88; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-load {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      padding: 8px 14px;
+      white-space: nowrap;
+    }
+
+    /* Results panel */
+    .results-panel {
+      grid-column: 1 / -1;
+      display: none;
+    }
+
+    .results-panel.visible { display: block; }
+
+    .summary-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 24px;
+    }
+
+    .summary-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .sections {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 700px) {
+      .sections { grid-template-columns: 1fr; }
+    }
+
+    .section { }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .section-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .section-title {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .count-badge {
+      margin-left: auto;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 9px;
+      color: var(--muted);
+    }
+
+    .card {
+      border-radius: 10px;
+      border: 1px solid transparent;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .card-main { font-weight: 500; margin-bottom: 6px; }
+
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .tag {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+
+    .card-rationale {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .source-quote {
+      font-size: 12px;
+      color: var(--muted);
+      border-left: 2px solid currentColor;
+      padding-left: 8px;
+      font-style: italic;
+      opacity: 0.75;
+    }
+
+    /* Decision */
+    .card-decision { background: var(--decision-bg); border-color: #bfdbfe; }
+    .card-decision .tag { background: #dbeafe; color: var(--decision); }
+    .card-decision .source-quote { color: var(--decision); }
+
+    /* Task */
+    .card-task { background: var(--task-bg); border-color: #a7f3d0; }
+    .card-task .tag { background: #d1fae5; color: var(--task); }
+    .card-task .source-quote { color: var(--task); }
+
+    /* Risk */
+    .card-risk-high { background: var(--risk-high-bg); border-color: #fecaca; }
+    .card-risk-high .tag { background: #fee2e2; color: var(--risk-high); }
+    .card-risk-high .source-quote { color: var(--risk-high); }
+
+    .card-risk-medium { background: var(--risk-med-bg); border-color: #fde68a; }
+    .card-risk-medium .tag { background: #fef3c7; color: var(--risk-med); }
+    .card-risk-medium .source-quote { color: var(--risk-med); }
+
+    .card-risk-low { background: var(--risk-low-bg); border-color: var(--border); }
+    .card-risk-low .tag { background: #e5e7eb; color: var(--risk-low); }
+    .card-risk-low .source-quote { color: var(--risk-low); }
+
+    /* Open Q */
+    .card-openq { background: var(--openq-bg); border-color: #ddd6fe; }
+    .card-openq .tag { background: #ede9fe; color: var(--openq); }
+    .card-openq .source-quote { color: var(--openq); }
+
+    /* Loading state */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      background: var(--risk-high-bg);
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 14px 16px;
+      color: var(--risk-high);
+      font-size: 14px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+
+    .empty-state .icon { font-size: 36px; margin-bottom: 12px; }
+    .empty-state p { font-size: 15px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Construct<span>Log</span></div>
+  <div class="tagline">KI-gestützte Analyse von Bauprotokollen</div>
+</header>
+
+<div class="main">
+
+  <!-- Left: API Key + Transcript Input -->
+  <div class="panel">
+    <div class="panel-title">Anthropic API-Schlüssel</div>
+    <div class="api-row">
+      <input type="password" id="apiKey" placeholder="sk-ant-..." />
+    </div>
+
+    <div class="panel-title" style="display:flex; align-items:center; justify-content:space-between;">
+      <span>Besprechungsprotokoll</span>
+      <button class="btn-load" onclick="loadExample()">Beispiel laden</button>
+    </div>
+    <textarea id="transcript" placeholder="Besprechungsprotokoll hier einfügen oder auf „Beispiel laden" klicken …"></textarea>
+    <button class="btn-primary" id="analyzeBtn" onclick="analyze()">
+      <span id="btnLabel">Protokoll analysieren</span>
+    </button>
+  </div>
+
+  <!-- Right: About / How it works -->
+  <div class="panel">
+    <div class="panel-title">So funktioniert es</div>
+    <p style="font-size:14px; line-height:1.7; color:var(--muted); margin-bottom:20px;">
+      Beliebiges Baubesprechungsprotokoll einfügen — Bauleiterbesprechung, Nachtragsverhandlung,
+      Kostengespräch — und ConstructLog erstellt in Sekunden ein strukturiertes Ergebnisprotokoll.
+      Jede Extraktion ist im Originaltext verankert, nichts wird erfunden.
+    </p>
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div style="display:flex; gap:12px; align-items:flex-start;">
+        <div style="font-size:20px; margin-top:2px;">🔵</div>
+        <div>
+          <div style="font-weight:600; font-size:14px; margin-bottom:2px;">Beschlüsse</div>
+          <div style="font-size:13px; color:var(--muted);">Was entschieden wurde, wer verantwortlich ist und warum.</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:flex-start;">
+        <div style="font-size:20px; margin-top:2px;">🟢</div>
+        <div>
+          <div style="font-weight:600; font-size:14px; margin-bottom:2px;">Maßnahmen</div>
+          <div style="font-size:13px; color:var(--muted);">Konkrete Aufgaben mit Verantwortlichen und Terminen.</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:flex-start;">
+        <div style="font-size:20px; margin-top:2px;">🔴</div>
+        <div>
+          <div style="font-weight:600; font-size:14px; margin-bottom:2px;">Risiken</div>
+          <div style="font-size:13px; color:var(--muted);">Erkannte Risiken nach Schweregrad — hoch, mittel, niedrig.</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:flex-start;">
+        <div style="font-size:20px; margin-top:2px;">🟣</div>
+        <div>
+          <div style="font-weight:600; font-size:14px; margin-bottom:2px;">Offene Punkte</div>
+          <div style="font-size:13px; color:var(--muted);">Ungeklärte Fragen und ausstehende Entscheidungen.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:28px; padding-top:20px; border-top:1px solid var(--border);">
+      <div class="panel-title">Transparenzprinzip</div>
+      <p style="font-size:13px; color:var(--muted); line-height:1.6;">
+        Jeder extrahierte Punkt zeigt das genaue Quellzitat aus dem Protokoll. Keine Black Box —
+        jede Ausgabe ist gegen das Original prüfbar. Nur so gewinnt KI das Vertrauen von
+        Projektsteuerern und Bauleitern im echten Betrieb.
+      </p>
+    </div>
+  </div>
+
+  <!-- Results (full width) -->
+  <div class="panel results-panel" id="resultsPanel">
+    <div id="resultsContent">
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <p>Das strukturierte Ergebnisprotokoll erscheint hier.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const EXAMPLE_TRANSCRIPT = `BESPRECHUNGSPROTOKOLL
+Projekt: A9 Autobahnverbreiterung, Abschnitt 3 (Km 112+000 – 114+500)
+Besprechung: Baubesprechung Nr. 18
+Datum: 15. April 2026 | Uhrzeit: 09:00 – 10:45 Uhr
+Ort: Baubüro, Km 112+400
+Protokollführer: Frau Müller (Bauleitung AN)
+
+Teilnehmer:
+- Herr Brenner, Klaus — Projektsteurer (AG-seitig), Vorsitz
+- Frau Müller, Sarah — Oberbauleiter (AN)
+- Herr Roth, Thomas — Bauleiter Nachunternehmer Pfahlgründung (NU Roth Tiefbau GmbH)
+- Dr. Hofmann, Ingrid — Prüfingenieur Tragwerksplanung
+- Herr Wei, Marcus — Kostencontrolling (AG)
+
+Entschuldigt: Herr Fischer (Behördenvertreter, Landratsamt)
+
+---
+
+TOP 1 – Pfahlgründungsarbeiten, nördlicher Streckenabschnitt
+
+Herr Brenner eröffnet die Besprechung und verweist auf den Terminverzug bei den Pfahlgründungen.
+Laut aktuellem Bauablaufplan sollte der Fertigstellungsgrad zum 11.04.2026 bei 60 % liegen.
+Der tatsächliche Stand beträgt laut Baubericht 51 %.
+
+Herr Roth erläutert: Beim Abteufen der Bohrpfähle ab Km 112+800 wurde Grundwasser in einer
+Tiefe von 8,20 m angetroffen — ca. 2,50 m früher als im Baugrundgutachten von 2019 prognostiziert.
+Ein Wechsel auf Nassbohrverfahren war zwingend erforderlich, was zu einer erheblichen
+Leistungsminderung geführt hat.
+
+Frau Müller weist darauf hin, dass sie dieses Risiko bereits im Baubericht KW 12 schriftlich
+angemeldet hatte. Das Baugrundgutachten aus dem Jahr 2019 sei für den aktuellen Grundwasserstand
+nicht mehr repräsentativ.
+
+Dr. Hofmann erklärt, dass die statischen Nachweise durch den veränderten Grundwasserstand
+nicht berührt werden. Allerdings ist eine Anpassung der Pfahlabstände im betroffenen Bereich
+(Km 112+750 bis Km 112+900) erforderlich. Sie sagt zu, die überarbeiteten Ausführungspläne
+bis zum 18.04.2026 vorzulegen.
+
+Beschluss: Die Nassbohrung wird fortgeführt. Dr. Hofmann legt überarbeitete Pfahlabstandspläne
+bis 18.04.2026 vor. Frau Müller koordiniert die Umsetzung unmittelbar nach Planeingang.
+
+Herr Wei teilt mit, dass die Mehrkosten für die Nassbohrung vorläufig mit ca. 45.000 € zu
+beziffern sind. Der verfügbare Risikorahmen im Projektbudget deckt diesen Betrag ab. Er
+fordert einen förmlichen Nachtragsantrag von Herrn Roth bis spätestens 17.04.2026 ein.
+
+---
+
+TOP 2 – Lärmschutzwand, nördliche Ortslage Schwabach
+
+Herr Brenner berichtet, dass die Gemeindeverbindungsstelle Beschwerden aus der Anwohnerschaft
+erhalten hat. Im Zuge der Schallschutzarbeiten wurden am Dienstag, 13.04.2026, Arbeiten bis
+20:00 Uhr durchgeführt — obwohl vertraglich eine Nachtruhe ab 18:00 Uhr vereinbart ist.
+
+Frau Müller räumt ein, dass der Polier der Nachtschicht nicht über die Nebenbestimmung aus
+dem Planfeststellungsbeschluss informiert war. Es handelt sich um eine interne Kommunikationslücke.
+
+Herr Brenner bewertet dies als schwerwiegend. Ein Wiederholungsfall würde mit hoher
+Wahrscheinlichkeit zu einer förmlichen Beschwerde beim Landratsamt sowie einem behördlich
+angeordneten Baustopp führen, mit entsprechenden Vertragsstrafefolgen.
+Frau Müller wird beauftragt, sämtliche Schichtführer noch heute schriftlich auf die
+geltenden Arbeitszeitregelungen hinzuweisen. Die Bestätigung ist Herrn Brenner bis 16.04.2026
+vorzulegen.
+
+---
+
+TOP 3 – Rampenanschluss Anschlussstelle 112, Freigabe Straßenverkehrsbehörde
+
+Herr Wei berichtet, dass die verkehrsrechtliche Anordnung für den Rampenanschluss
+Anschlussstelle 112 noch aussteht. Die zuständige Straßenverkehrsbehörde hat in der
+KW 14 ergänzende Verkehrsflussberechnungen angefordert; eine Rückmeldung ist seitdem
+nicht erfolgt.
+
+Herr Brenner stuft dies als kritischen Pfad ein. Liegt die Freigabe nicht bis zum 22.04.2026
+vor, ist der vertraglich vereinbarte Übergabetermin am 15.06.2026 gefährdet. Die
+Vertragsstrafe beträgt gemäß § 11 VOB/B i.V.m. Besonderer Vertragsbedingung 10.000 €
+je Werktag des Verzugs.
+
+Herr Brenner übernimmt die Eskalation an den Auftraggeber noch heute. Herr Wei wird
+parallel direkten Kontakt zur Straßenverkehrsbehörde aufnehmen, um den Bearbeitungsstand
+zu klären — unabhängig vom AG-seitigen Eskalationsweg.
+
+---
+
+TOP 4 – Offene Punkte / Verschiedenes
+
+Herr Brenner stellt die offene Frage: Welche Handlungsoptionen stehen zur Verfügung, falls
+der Übergabetermin 15.06.2026 nicht zu halten ist? Herr Wei wird beauftragt, bis zum
+19.04.2026 zwei Szenarien zu modellieren und dem Steuerungskreis vorzulegen.
+
+Nächste Baubesprechung: Donnerstag, 18.04.2026, 09:00 Uhr, Baubüro Km 112+400.
+
+Dieses Protokoll gilt als genehmigt, sofern innerhalb von 3 Werktagen keine schriftlichen
+Einwände eingehen.
+
+gez. Frau Müller, Protokollführung | 15.04.2026`;
+
+function loadExample() {
+  document.getElementById('transcript').value = EXAMPLE_TRANSCRIPT;
+}
+
+function setLoading(loading) {
+  const btn = document.getElementById('analyzeBtn');
+  const label = document.getElementById('btnLabel');
+  btn.disabled = loading;
+  label.innerHTML = loading
+    ? '<div class="spinner"></div> Analysiere …'
+    : 'Protokoll analysieren';
+}
+
+function severityClass(sev) {
+  const s = (sev || '').toLowerCase();
+  if (s === 'high') return 'card-risk-high';
+  if (s === 'medium') return 'card-risk-medium';
+  return 'card-risk-low';
+}
+
+function severityLabel(sev) {
+  const s = (sev || '').toLowerCase();
+  if (s === 'high') return '🔴 Hohes Risiko';
+  if (s === 'medium') return '🟡 Mittleres Risiko';
+  return '⚪ Geringes Risiko';
+}
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderResults(data) {
+  let html = '';
+
+  // Summary
+  if (data.summary) {
+    html += `
+      <div class="summary-box">
+        <div class="summary-label">Zusammenfassung</div>
+        ${escHtml(data.summary)}
+      </div>`;
+  }
+
+  html += '<div class="sections">';
+
+  // Decisions
+  const decisions = data.decisions || [];
+  html += `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background:#dbeafe">🔵</div>
+        <div class="section-title">Beschlüsse</div>
+        <div class="count-badge">${decisions.length}</div>
+      </div>`;
+  if (decisions.length === 0) {
+    html += '<p style="font-size:13px;color:var(--muted)">Keine Beschlüsse identifiziert.</p>';
+  }
+  decisions.forEach(d => {
+    html += `
+      <div class="card card-decision">
+        <div class="card-main">${escHtml(d.text)}</div>
+        <div class="card-meta">
+          ${d.owner ? `<span class="tag">👤 ${escHtml(d.owner)}</span>` : ''}
+        </div>
+        ${d.rationale ? `<div class="card-rationale">↳ ${escHtml(d.rationale)}</div>` : ''}
+        ${d.source ? `<div class="source-quote">"${escHtml(d.source)}"</div>` : ''}
+      </div>`;
+  });
+  html += '</div>';
+
+  // Tasks
+  const tasks = data.tasks || [];
+  html += `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background:#d1fae5">🟢</div>
+        <div class="section-title">Maßnahmen</div>
+        <div class="count-badge">${tasks.length}</div>
+      </div>`;
+  if (tasks.length === 0) {
+    html += '<p style="font-size:13px;color:var(--muted)">Keine Maßnahmen identifiziert.</p>';
+  }
+  tasks.forEach(t => {
+    html += `
+      <div class="card card-task">
+        <div class="card-main">${escHtml(t.text)}</div>
+        <div class="card-meta">
+          ${t.owner ? `<span class="tag">👤 ${escHtml(t.owner)}</span>` : ''}
+          ${t.deadline ? `<span class="tag">📅 ${escHtml(t.deadline)}</span>` : ''}
+        </div>
+        ${t.source ? `<div class="source-quote">"${escHtml(t.source)}"</div>` : ''}
+      </div>`;
+  });
+  html += '</div>';
+
+  // Risks
+  const risks = data.risks || [];
+  html += `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fee2e2">🔴</div>
+        <div class="section-title">Risiken</div>
+        <div class="count-badge">${risks.length}</div>
+      </div>`;
+  if (risks.length === 0) {
+    html += '<p style="font-size:13px;color:var(--muted)">Keine Risiken identifiziert.</p>';
+  }
+  risks.forEach(r => {
+    const cls = severityClass(r.severity);
+    html += `
+      <div class="card ${cls}">
+        <div class="card-main">${escHtml(r.text)}</div>
+        <div class="card-meta">
+          <span class="tag">${severityLabel(r.severity)}</span>
+        </div>
+        ${r.source ? `<div class="source-quote">"${escHtml(r.source)}"</div>` : ''}
+      </div>`;
+  });
+  html += '</div>';
+
+  // Open Questions
+  const openqs = data.open_questions || [];
+  tml += `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background:#ede9fe">🟣</div>
+        <div class="section-title">Offene Punkte</div>
+        <div class="count-badge">${openqs.length}</div>
+      </div>`;
+  if (openqs.length === 0) {
+    html += '<p style="font-size:13px;color:var(--muted)">Keine offenen Punkte identifiziert.</p>';
+  }
+  openqs.forEach(q => {
+    html += `
+      <div class="card card-openq">
+        <div class="card-main">${escHtml(q.text)}</div>
+        ${q.source ? `<div class="source-quote">"${escHtml(q.source)}"</div>` : ''}
+      </div>`;
+  });
+  html += '</div>';
+
+  html += '</div>'; // end .sections
+
+  document.getElementById('resultsContent').innerHTML = html;
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function analyze() {
+  const transcript = document.getElementById('transcript').value.trim();
+
+  if (\!transcript) {
+    alert('Bitte ein Protokoll einfügen oder auf \u201eBeispiel laden\u201c klicken.');
+    return;
+  }
+
+  setLoading(true);
+  document.getElementById('resultsPanel').classList.remove('visible');
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript }),
+    });
+
+    const data = await res.json();
+
+    if (\!res.ok || data.error) {
+      document.getElementById('resultsPanel').classList.add('visible');
+      document.getElementById('resultsContent').innerHTML = `
+        <div class="error-box">
+          <strong>Fehler:</strong> ${escHtml(data.error || 'Unbekannter Fehler')}
+        </div>`;
+      return;
+    }
+
+    renderResults(data);
+  } catch (err) {
+    document.getElementById('resultsPanel').classList.add('visible');
+    document.getElementById('resultsContent').innerHTML = `
+      <div class="error-box">
+        <strong>Netzwerkfehler:</strong> ${escHtml(err.message)}
+      </div>`;
+  } finally {
+    setLoading(false);
+  }
+}
+</script>
+</body>
+</html>
