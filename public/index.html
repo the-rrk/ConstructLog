@@ -192,7 +192,7 @@
       .sections { grid-template-columns: 1fr; }
     }
 
-    .section { }
+    
 
     .section-header {
       display: flex;
@@ -633,7 +633,7 @@ function renderResults(data) {
 
   // Open Questions
   const openqs = data.open_questions || [];
-  h                                                                                                                                                                       tml += `
+  html += `
     <div class="section">
       <div class="section-header">
         <div class="section-icon" style="background:#ede9fe">🟣</div>
@@ -662,7 +662,7 @@ function renderResults(data) {
 async function analyze() {
   const transcript = document.getElementById('transcript').value.trim();
 
-  if (\!transcript) {
+  if (!transcript) {
     alert('Bitte ein Protokoll einfügen oder auf \u201eBeispiel laden\u201c klicken.');
     return;
   }
@@ -679,7 +679,7 @@ async function analyze() {
 
     const data = await res.json();
 
-    if (\!res.ok || data.error) {
+    if (!res.ok || data.error) {
       document.getElementById('resultsPanel').classList.add('visible');
       document.getElementById('resultsContent').innerHTML = `
         <div class="error-box">
