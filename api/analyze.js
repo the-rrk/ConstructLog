@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const { object } = await generateObject({
-      model:  anthropic('claude-opus-4-6'),
+      model:  anthropic('claude-sonnet-4-6'),
       schema: ProtocolSchema,
       system: SYSTEM_PROMPT,
       mode: "tool",
